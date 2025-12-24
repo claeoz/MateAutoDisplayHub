@@ -1,31 +1,31 @@
 #!/bin/bash
 
-# Be sure to add this current filepath to matedisplayrule.rules 
-# Also make sure matedisplayrule.rules is in /etc/udex/rules.d/
-
 echo "mpanup starting"
 
-# Gets Displays
-displays=$(xrandr --listmonitors)
+# Detect monitors
+mapfile -t monitors < <(xrandr --listmonitors | awk 'NR>1 {print $4}')
+monitor_count=${#monitors[@]}
+echo "Detected $monitor_count monitor(s)"
 
-#checks if theres only one display
-if [[ ${#displays[@]} -eq 1 ]]
-    #Sets panels back to default
-    mate-panel --reset
+# Reset existing panels
+dconf reset -f /org/mate/panel/
 
-else
-    # Creates a foreach loop
-    for display in "{displays[@]}"; do
-        echo "Starting  $display"
-        # Clears panels
-        
-        # Sets up panels
+# Load Parrot default panels
+dconf load /org/mate/panel/ < /usr/local/share/mpanup/parrot-panels.conf
 
-        # Creates panels
+# Reassign panels to each monitor
+panel_ids=$(gsettings get org.mate.panel.general toplevel-id-list | tr -d "[],'")
+read -r -a panels <<< "$panel_ids"
 
-        # Adds widgets
+for i in "${!monitors[@]}"; do
+    TOP_PANEL="${panels[$((i*2))]}"
+    BOTTOM_PANEL="${panels[$((i*2+1))]}"
 
-        echo "Completed $display"
-    done
-fi
+    gsettings set org.mate.panel.toplevel:/org/mate/panel/toplevels/$TOP_PANEL/ monitor "$i"
+    gsettings set org.mate.panel.toplevel:/org/mate/panel/toplevels/$BOTTOM_PANEL/ monitor "$i"
+done
+
+# Restart panel
+mate-panel --replace &
+
 echo "mpanup complete"
